@@ -1,7 +1,8 @@
 import requests
 import json
+import unicodedata as ud
 
-with open('../_auth/reddit.json') as f:
+with open('../../_auth/reddit.json') as f:
     config = json.load(f)
     
 base_url = 'https://www.reddit.com/'
@@ -23,6 +24,42 @@ response = requests.get(base_url + '/api/v1/me', headers=headers)
 def access_valid():
     return response.status_code == 200
 
+def replace_all(in_str, unwanted, sub = '/'):
+    """
+    Removes all instances of an unwanted string inside in_str
+    """
+    for i in unwanted:
+        in_str = in_str.replace(i, sub)
+    return in_str
+
+### From https://stackoverflow.com/questions/3094498/how-can-i-check-if-a-python-unicode-string-contains-non-western-letters ###
+latin_letters= {}
+def is_latin(uchr):
+    try: return latin_letters[uchr]
+    except KeyError:
+         return latin_letters.setdefault(uchr, 'LATIN' in ud.name(uchr))
+
+def is_roman(unistr):
+    return all(is_latin(uchr)
+           for uchr in unistr
+           if uchr.isalpha()) 
+
+def pref_ch(ch):
+    """(Bool) checks if character ch is preferable for the data"""
+    ok_char = [' ', "'",'"','“', '”', ',','.','!','?'] + ['/']
+    return ch.isalpha() or ch in ok_char
+
+def pref_form(haiku):
+    """ (Bool) check if haiku is of preferred format stanza1 / stanza2 / stanza3 """
+    #counting chars w/in list comp is awkward but works
+    return sum([0 if is_roman(i) and pref_ch(i) and haiku.count('/') == 2 else 1 for i in haiku ]) == 0
+
+def rm_emojis(haiku):
+    for c in haiku:
+        if ord(c) > 8000: # kind of arbitrary but most emojis are around here
+            haiku = haiku.replace(c,'')
+    return haiku
+            
 def scrape_haiku(sort='top',size=1000):
     '''Size actually shrinks when removing duplicates'''
     titles = []
@@ -34,9 +71,12 @@ def scrape_haiku(sort='top',size=1000):
         after = values['data']['after'] # to reset index
         curr_titles = [ values['data']['children'][i]['data']['title'] 
                          for i in range(len(values['data']['children'])) ]
-        curr_titles = [t for t in curr_titles if '/' in t]
+        curr_titles = [t for t in curr_titles if '/' in t] # first pass check if it is a haiku
         titles += [*curr_titles]
     titles_clean = []
-    [titles_clean.append(t.replace('//', '/')) # keep consistent '/' format
+    # these list comps apply multiple steps of filtering/replacing
+    [titles_clean.append(replace_all(t, ['//','\\','  ',' / '], '/')) # keep consistent '/' format
             for t in titles if t not in titles_clean] #remove duplicates
+    titles_clean = [rm_emojis(replace_all(h, ['“', '”'], '"')) for h in titles_clean if pref_form(h)]
+    
     return titles_clean

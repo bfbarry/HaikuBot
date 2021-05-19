@@ -1,6 +1,7 @@
 import requests
 import json
 import unicodedata as ud
+import string
 
 with open('../../_auth/reddit.json') as f:
     config = json.load(f)
@@ -60,6 +61,7 @@ def rm_emojis(haiku):
             haiku = haiku.replace(c,'')
     return haiku
             
+
 def scrape_haiku(sort='top',size=1000):
     '''Size actually shrinks when removing duplicates'''
     titles = []
@@ -72,11 +74,23 @@ def scrape_haiku(sort='top',size=1000):
         curr_titles = [ values['data']['children'][i]['data']['title'] 
                          for i in range(len(values['data']['children'])) ]
         curr_titles = [t for t in curr_titles if '/' in t] # first pass check if it is a haiku
-        titles += [*curr_titles]
+        titles += [*curr_titles] #ie extend
     titles_clean = []
+    ## CLEANING DATA ##
     # these list comps apply multiple steps of filtering/replacing
-    [titles_clean.append(replace_all(t, ['//','\\','  ',' / '], '/')) # keep consistent '/' format
+    [titles_clean.append(replace_all(t, ['//','\\','  ',' / '], '/')) # start with consistent '/' format
             for t in titles if t not in titles_clean] #remove duplicates
-    titles_clean = [rm_emojis(replace_all(h, ['“', '”'], '"')) for h in titles_clean if pref_form(h)]
+
+    titles_clean = [rm_emojis(replace_all(h, ['“', '”','"',',','.','?','!'], '')) for h in titles_clean if pref_form(h)]
+    titles_clean = [h.replace('/',' / ') for h in titles_clean] # want / as special char
     
     return titles_clean
+
+def detokenize(tokens):
+    '''from https://stackoverflow.com/questions/21948019/python-untokenize-a-sentence'''
+    s = "".join([" "+i if not i.startswith("'") and i not in string.punctuation else i for i in tokens]).strip()
+    # special cases
+#     s = s.replace('`` ','``') #sticking with weird nltk quotes for now
+    s = s.replace('/',' NS ')
+    return s
+    

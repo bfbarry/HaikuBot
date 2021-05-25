@@ -81,9 +81,11 @@ def scrape_haiku(sort='top',size=1000):
     [titles_clean.append(replace_all(t, ['//','\\','  ',' / '], '/')) # start with consistent '/' format
             for t in titles if t not in titles_clean] #remove duplicates
 
-    titles_clean = [rm_emojis(replace_all(h, ['“', '”','"',',','.','?','!'], '')) for h in titles_clean if pref_form(h)]
+    titles_clean = [rm_emojis(replace_all(h, ['“', '”','"',',','.','?','!'], '')).lower() for h in titles_clean if pref_form(h)]
     titles_clean = [h.replace('/',' / ') for h in titles_clean] # want / as special char
-    
+    for ix, h in enumerate(titles_clean):
+        h += " $"
+        titles_clean[ix] = h
     return titles_clean
 
 def detokenize(tokens):
@@ -91,6 +93,7 @@ def detokenize(tokens):
     s = "".join([" "+i if not i.startswith("'") and i not in string.punctuation else i for i in tokens]).strip()
     # special cases
 #     s = s.replace('`` ','``') #sticking with weird nltk quotes for now
-    s = s.replace('/',' NS ')
+    s = s.replace('/',' /')
+    s = s.replace('$',' $')
     return s
     

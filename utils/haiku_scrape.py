@@ -2,6 +2,7 @@ import requests
 import json
 import unicodedata as ud
 import string
+import time
 
 with open('../../_auth/reddit.json') as f:
     config = json.load(f)
@@ -61,7 +62,6 @@ def rm_emojis(haiku):
             haiku = haiku.replace(c,'')
     return haiku
             
-
 def scrape_haiku(sort='top',size=1000):
     '''Size actually shrinks when removing duplicates'''
     titles = []
@@ -69,21 +69,25 @@ def scrape_haiku(sort='top',size=1000):
     while len(titles) < size:
         payload = {'t':'all','limit':100,'after':after}
         response = requests.get(base_url + f'/r/haiku/{sort}', headers=headers, params=payload)
+        # time.sleep(1)
         values = response.json()
         after = values['data']['after'] # to reset index
         curr_titles = [ values['data']['children'][i]['data']['title'] 
                          for i in range(len(values['data']['children'])) ]
         curr_titles = [t for t in curr_titles if '/' in t] # first pass check if it is a haiku
         titles += [*curr_titles] #ie extend
-    titles_clean = []
+    
     ## CLEANING DATA ##
     # these list comps apply multiple steps of filtering/replacing
-    [titles_clean.append(replace_all(t, ['//','\\','  ',' / '], '/')) # start with consistent '/' format
-            for t in titles if t not in titles_clean] #remove duplicates
+    titles = [replace_all(t, ['//','\\','  ',' / '], '/').lower() for t in titles] # start with consistent '/' format
+    titles_clean = []
+    [titles_clean.append(t) for t in titles if t not in titles_clean] #remove duplicates
 
     titles_clean = [rm_emojis(replace_all(h, ['“', '”','"',',','.','?','!'], '')) for h in titles_clean if pref_form(h)]
     titles_clean = [h.replace('/',' / ') for h in titles_clean] # want / as special char
-    
+    for ix, h in enumerate(titles_clean):
+        h += " $"
+        titles_clean[ix] = h
     return titles_clean
 
 def detokenize(tokens):
@@ -91,6 +95,7 @@ def detokenize(tokens):
     s = "".join([" "+i if not i.startswith("'") and i not in string.punctuation else i for i in tokens]).strip()
     # special cases
 #     s = s.replace('`` ','``') #sticking with weird nltk quotes for now
-    s = s.replace('/',' NS ')
+    s = s.replace('/',' /')
+    s = s.replace('$',' $')
     return s
     

@@ -2,6 +2,7 @@ import requests
 import json
 import unicodedata as ud
 import string
+import time
 
 with open('../../_auth/reddit.json') as f:
     config = json.load(f)
@@ -61,27 +62,40 @@ def rm_emojis(haiku):
             haiku = haiku.replace(c,'')
     return haiku
             
-
-def scrape_haiku(sort='top',size=1000):
-    '''Size actually shrinks when removing duplicates'''
+def scrape_haiku(sort='top',size=1000,api='pushshift'):
+    '''Size actually shrinks when removing duplicates
+    reddit-api sort: top, new
+    pushshift api sort: desc'''
     titles = []
-    after = None
-    while len(titles) < size:
-        payload = {'t':'all','limit':100,'after':after}
-        response = requests.get(base_url + f'/r/haiku/{sort}', headers=headers, params=payload)
-        values = response.json()
-        after = values['data']['after'] # to reset index
-        curr_titles = [ values['data']['children'][i]['data']['title'] 
-                         for i in range(len(values['data']['children'])) ]
-        curr_titles = [t for t in curr_titles if '/' in t] # first pass check if it is a haiku
-        titles += [*curr_titles] #ie extend
-    titles_clean = []
+    
+    if api == 'reddit'
+        after = None
+        while len(titles) < size:
+            payload = {'t':'all','limit':100,'after':after}
+            response = requests.get(base_url + f'/r/haiku/{sort}', headers=headers, params=payload)
+            # time.sleep(1)
+            values = response.json()
+            after = values['data']['after'] # to reset index
+            curr_titles = [ values['data']['children'][i]['data']['title'] 
+                             for i in range(len(values['data']['children'])) ]
+            curr_titles = [t for t in curr_titles if '/' in t] # first pass check if it is a haiku
+            titles += [*curr_titles] #ie extend
+    elif api == 'pushshift':
+        d1 = datetime.date.today()#datetime.date(2013,9,1)
+        before = int(time.mktime(d1.timetuple()))
+        after = before - 7*24*60*60
+        for i in range(int(num/100)):
+            resp = requests.get(f'https://api.pushshift.io/reddit/search/submission/?subreddit=haiku&sort=desc&sort_type=created_utc&after={after}&before={before}&size=1000').json()['data']
+            titles.extend([el['title'] for el in resp])
+            before = after
+            after = before - 7*24*60*60
+        
     ## CLEANING DATA ##
     # these list comps apply multiple steps of filtering/replacing
-    [titles_clean.append(replace_all(t, ['//','\\','  ',' / '], '/')) # start with consistent '/' format
-            for t in titles if t not in titles_clean] #remove duplicates
+    titles = [replace_all(t, ['//','\\','  ',' / ','::','~~'], '/').lower() for t in titles] # start with consistent '/' format
+    titles_clean = list(set(titles))
 
-    titles_clean = [rm_emojis(replace_all(h, ['“', '”','"',',','.','?','!'], '')).lower() for h in titles_clean if pref_form(h)]
+    titles_clean = [rm_emojis(replace_all(h, ['“', '”','"',',','.','?','!'], '')) for h in titles_clean if pref_form(h)]
     titles_clean = [h.replace('/',' / ') for h in titles_clean] # want / as special char
     for ix, h in enumerate(titles_clean):
         h += " $"

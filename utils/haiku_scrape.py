@@ -3,6 +3,7 @@ import json
 import unicodedata as ud
 import string
 import time
+import datetime
 
 with open('../../_auth/reddit.json') as f:
     config = json.load(f)
@@ -62,13 +63,13 @@ def rm_emojis(haiku):
             haiku = haiku.replace(c,'')
     return haiku
             
-def scrape_haiku(sort='top',size=1000,api='pushshift'):
+def scrape_haiku(size=1000, sort='top', api='pushshift'):
     '''Size actually shrinks when removing duplicates
     reddit-api sort: top, new
-    pushshift api sort: desc'''
+    pushshift api sort: hard coded to desc but can be asc too'''
     titles = []
     
-    if api == 'reddit'
+    if api == 'reddit':
         after = None
         while len(titles) < size:
             payload = {'t':'all','limit':100,'after':after}
@@ -80,11 +81,12 @@ def scrape_haiku(sort='top',size=1000,api='pushshift'):
                              for i in range(len(values['data']['children'])) ]
             curr_titles = [t for t in curr_titles if '/' in t] # first pass check if it is a haiku
             titles += [*curr_titles] #ie extend
+    
     elif api == 'pushshift':
-        d1 = datetime.date.today()#datetime.date(2013,9,1)
-        before = int(time.mktime(d1.timetuple()))
+        t0 = datetime.date.today()#datetime.date(2013,9,1)
+        before = int(time.mktime(t0.timetuple()))
         after = before - 7*24*60*60
-        for i in range(int(num/100)):
+        for i in range(int(size/100)):
             resp = requests.get(f'https://api.pushshift.io/reddit/search/submission/?subreddit=haiku&sort=desc&sort_type=created_utc&after={after}&before={before}&size=1000').json()['data']
             titles.extend([el['title'] for el in resp])
             before = after

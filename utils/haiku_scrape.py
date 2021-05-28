@@ -87,10 +87,14 @@ def scrape_haiku(size=1000, sort='top', api='pushshift'):
         before = int(time.mktime(t0.timetuple()))
         after = before - 7*24*60*60
         for i in range(int(size/100)):
-            resp = requests.get(f'https://api.pushshift.io/reddit/search/submission/?subreddit=haiku&sort=desc&sort_type=created_utc&after={after}&before={before}&size=1000').json()['data']
-            titles.extend([el['title'] for el in resp])
-            before = after
-            after = before - 7*24*60*60
+            try:
+                resp = requests.get(f'https://api.pushshift.io/reddit/search/submission/?subreddit=haiku&sort=desc&sort_type=created_utc&after={after}&before={before}&size=1000').json()['data']
+                titles.extend([el['title'] for el in resp])
+                before = after
+                after = before - 7*24*60*60
+            except:
+                print(f'breaks at {i}')
+                break
         
     ## CLEANING DATA ##
     # these list comps apply multiple steps of filtering/replacing

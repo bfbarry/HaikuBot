@@ -117,3 +117,44 @@ def detokenize(tokens):
     s = s.replace('$',' $')
     return s
     
+def prepare_data(haikus,n=3):
+    """prepares data for word level RNN
+    n: n-gram size"""
+    train = [] #n_grams
+    token_vocab = []
+    for h in haikus:
+        tokens = h.split() #word_tokenize(h)
+        token_vocab.extend(tokens)
+        for i in range(0,len(tokens)):
+            n_gram_list = tokens[i:i+n]
+            if len(n_gram_list) == n:
+                train.append(detokenize(n_gram_list))
+            else:
+                break
+    return train, token_vocab
+
+def prepare_cl_data(raw_text,seq_length = 10):
+    """prepares data for character level RNN
+    also returns non reshaped version of X for generation later"""
+    X_pre = [] # non reshaped id sequences
+    y = []
+    for i in range(0, n_chars - seq_length, 1):
+        _x = raw_text[i : i+seq_length]
+        if '$' in _x and _x.index('$') != len(_x)-1: #cutting off haiku data when they end
+            continue
+        _y = raw_text[i+seq_length]
+        X_pre.append([char_to_id[c] for c in _x])
+        y.append(char_to_id[_y])
+    train_size = len(X)
+    print(f'train size: {train_size}')
+    
+    # reshape X to [samples, time_steps, features]
+    X = np.reshape(X_pre, (train_size, seq_length, 1))
+    X = X / float(n_vocab) # normalize
+    y = to_categorical(y)
+    return X_pre, X, y
+    
+def load_haiku(in_dir='../data/lines.txt'):
+    with open(in_dir, 'r') as f:
+        haikus = f.read()
+    return haikus.split('\n')
